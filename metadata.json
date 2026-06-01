@@ -1,0 +1,6 @@
+{
+  "name": "Protocol Chat",
+  "description": "A high-performance communication platform for technical collectives.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

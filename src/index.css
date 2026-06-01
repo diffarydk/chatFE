@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Inter:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --primary: #4edea3;
+  --surface: #131313;
+  --on-surface: #e5e2e1;
+  --outline-variant: #3c4a42;
+}
+
+body {
+  @apply bg-[#131313] text-[#e5e2e1] font-sans;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3c4a42;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4edea3;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
