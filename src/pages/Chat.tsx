@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Terminal, Settings, Plus, Search, Bell, MoreVertical,
   Smile, Send, Mic, Paperclip, Check, CheckCheck, Info, MessageSquare,
-  Hash, Users, User, X, CheckSquare, Square, Trash2
+  Hash, Users, User, X, CheckSquare, Square, Trash2, LogOut
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 // --- Types & Mock Data ---
 
@@ -46,16 +48,6 @@ type FriendRequest = {
   fromName: string;
 };
 
-const MOCK_DATABASE = [
-  { id: 'dev-123', name: 'Alice Node', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop' },
-  { id: 'ada-77', name: 'Ada Lovelace', color: 'bg-purple-500' }
-];
-
-const CURRENT_USER_ID = 'user-me';
-
-const INITIAL_CHATS: ChatSession[] = [];
-const INITIAL_MESSAGES: Message[] = [];
-
 type Member = {
   id: string;
   name: string;
@@ -64,13 +56,6 @@ type Member = {
   avatar: string;
   color?: string;
 };
-
-const MEMBERS: Member[] = [
-  { id: '1', name: 'Elena Rostova', role: 'Admin', status: 'online', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7S_e5Te6PRqoXDr2zXASVNBUmQnmYL99eLmkMfnXQW21Y8MiA9AEYWn2lauHGr0ZrtMcqJ6BaZqRujmtp9zWaAAKTY5_8Bjrnsyfe0pJzuzVgmKRzthgKCccfFu3aasHkn76T799kIa4H18w5HJAHZjuXkOMc-trko8EXol63D0iq-dIH6RYgXB6P73TJ3IAsE6AfJDvnbIeVatF1PmfTRFw9FaaAMKxoW6nKKf0gSH1lZM161ivaZuUm64h2nkXQTTCu4E5dKe4' },
-  { id: '2', name: 'David Kim', role: 'Engineer', status: 'busy', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDb5TBpbNkJfluxHLjGl8-kUe8pMW7MLF7Eagw0YcUu0crO0dDe_zgPqAiJao2GrKFtSA3GRpCgZZTT_SMzt1GBkyBZnIPkT3tMFsFBjM0NEIQoq0WhOM_jKczyWdAqJgaLZNdsvlysCr8f-rtybreLjRSU_j1qw97aN5G_ufaPrdRjCcU_lVakN4_SGThuCicGp8fYduL2ImAZEfrnDoELXBLPp0ATXdTyKvf1ZKYbgJbXN35TEprKlkFqJUzVZQoqhkqOvk2mAs' },
-  { id: '3', name: 'Marcus Chen', role: 'Engineer', status: 'online', avatar: '', color: 'bg-rose-500' },
-  { id: '4', name: 'Sarah O\'Connor', role: 'Designer', status: 'offline', avatar: '', color: 'bg-purple-500' },
-];
 
 // --- Components ---
 
@@ -169,8 +154,10 @@ const MessageBubble: React.FC<{ message: Message; showAvatar: boolean }> = ({ me
 }
 
 export default function Chat() {
-  const [chats, setChats] = useState(INITIAL_CHATS);
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const { user, token, logout } = useAuth();
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [inputValue, setInputValue] = useState("");
 
   // Navigation State
@@ -214,23 +201,62 @@ export default function Chat() {
 
   // --- BE INTEGRATION: INITIAL DATA FETCH ---
   useEffect(() => {
-    // Simulate fetching initial chats and friend requests
     const fetchData = async () => {
-      // const chatRes = await fetch('/api/chats');
-      // const chatsData = await chatRes.json();
-      // setChats(chatsData);
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      try {
+        if (apiBase) {
+          // Fetch active chat rooms
+          const chatsData = await api.get('/chats');
+          setChats(chatsData);
 
-      // const reqRes = await fetch('/api/friend-requests');
-      // const reqData = await reqRes.json();
-      // setFriendRequests(reqData);
+          // Fetch active workspace members
+          const membersData = await api.get('/members');
+          setMembers(membersData);
 
-      await new Promise(resolve => setTimeout(resolve, 800)); // fake delay
-      setChats([]); // empty state
-      setFriendRequests([{ id: 'req-1', fromId: 'bob-99', fromName: 'Bob Engineer' }]); // 1 mock request for demo
-      setIsLoadingData(false);
+          // Fetch friend requests
+          const reqData = await api.get('/friend-requests');
+          setFriendRequests(reqData);
+        } else {
+          // Fallback: Populate mock data for testing if offline
+          await new Promise(resolve => setTimeout(resolve, 800));
+          setChats([
+            {
+              id: 'c1',
+              name: 'Engineering Team',
+              type: 'group',
+              avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=100&h=100&fit=crop',
+              lastMessage: 'David: Let\'s look at the blur-radius.',
+              time: '2:51 PM',
+              unreadCount: 3,
+              online: true,
+            },
+            {
+              id: 'c2',
+              name: 'Elena Rostova',
+              type: 'direct',
+              avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7S_e5Te6PRqoXDr2zXASVNBUmQnmYL99eLmkMfnXQW21Y8MiA9AEYWn2lauHGr0ZrtMcqJ6BaZqRujmtp9zWaAAKTY5_8Bjrnsyfe0pJzuzVgmKRzthgKCccfFu3aasHkn76T799kIa4H18w5HJAHZjuXkOMc-trko8EXol63D0iq-dIH6RYgXB6P73TJ3IAsE6AfJDvnbIeVatF1PmfTRFw9FaaAMKxoW6nKKf0gSH1lZM161ivaZuUm64h2nkXQTTCu4E5dKe4',
+              lastMessage: 'Verification complete!',
+              time: '2:46 PM',
+              unreadCount: 0,
+              online: true,
+            }
+          ]);
+          setMembers([
+            { id: '1', name: 'Elena Rostova', role: 'Admin', status: 'online', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7S_e5Te6PRqoXDr2zXASVNBUmQnmYL99eLmkMfnXQW21Y8MiA9AEYWn2lauHGr0ZrtMcqJ6BaZqRujmtp9zWaAAKTY5_8Bjrnsyfe0pJzuzVgmKRzthgKCccfFu3aasHkn76T799kIa4H18w5HJAHZjuXkOMc-trko8EXol63D0iq-dIH6RYgXB6P73TJ3IAsE6AfJDvnbIeVatF1PmfTRFw9FaaAMKxoW6nKKf0gSH1lZM161ivaZuUm64h2nkXQTTCu4E5dKe4' },
+            { id: '2', name: 'David Kim', role: 'Engineer', status: 'busy', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDb5TBpbNkJfluxHLjGl8-kUe8pMW7MLF7Eagw0YcUu0crO0dDe_zgPqAiJao2GrKFtSA3GRpCgZZTT_SMzt1GBkyBZnIPkT3tMFsFBjM0NEIQoq0WhOM_jKczyWdAqJgaLZNdsvlysCr8f-rtybreLjRSU_j1qw97aN5G_ufaPrdRjCcU_lVakN4_SGThuCicGp8fYduL2ImAZEfrnDoELXBLPp0ATXdTyKvf1ZKYbgJbXN35TEprKlkFqJUzVZQoqhkqOvk2mAs' },
+            { id: '3', name: 'Marcus Chen', role: 'Engineer', status: 'online', avatar: '', color: 'bg-rose-500' },
+            { id: '4', name: 'Sarah O\'Connor', role: 'Designer', status: 'offline', avatar: '', color: 'bg-purple-500' }
+          ]);
+          setFriendRequests([{ id: 'req-1', fromId: 'bob-99', fromName: 'Bob Engineer' }]);
+        }
+      } catch (err) {
+        console.error('Error fetching dynamic initial data:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
     };
     fetchData();
-  }, []);
+  }, [token]);
 
   // --- WEBSOCKET INTEGRATION POINT (CONNECT & LISTEN) ---
   /*
@@ -270,8 +296,8 @@ export default function Chat() {
     
     const newMessage: Message = {
       id: Date.now().toString(),
-      senderId: CURRENT_USER_ID,
-      senderName: 'You',
+      senderId: user?.id || 'user-me',
+      senderName: user?.name || 'You',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       content: inputValue,
       status: 'sent',
@@ -287,7 +313,7 @@ export default function Chat() {
     // socket.emit('sendMessage', {
     //   chatId: activeChat,
     //   content: inputValue,
-    //   senderId: CURRENT_USER_ID
+    //   senderId: user?.id || 'user-me'
     // });
 
     // Remove these simulated status updates once BE handles it:
@@ -379,20 +405,30 @@ export default function Chat() {
       }
 
       // --- BACKEND INTEGRATION POINT (ID VALIDATION & FRIEND REQUEST) ---
-      // Simulate API call to verify ID and send friend request:
-      // const response = await fetch(`/api/users/${targetId}`);
-      // if (!response.ok) throw new Error("User ID not found");
-      // await fetch('/api/friend-requests', { method: 'POST', body: JSON.stringify({ to: targetId }) });
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      let validUserName = '';
 
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network delay
-      const validUser = MOCK_DATABASE.find(u => u.id === targetId);
-      
-      if (!validUser) {
-        throw new Error("User ID not found. Please check the ID and try again.");
+      if (apiBase) {
+        const data = await api.get(`/users/${targetId}`);
+        validUserName = data.name;
+
+        await api.post('/friend-requests', { to: targetId });
+      } else {
+        // Fallback: Simulate API Call using local mock users for offline showcase
+        await new Promise(resolve => setTimeout(resolve, 800));
+        const mockUsers = [
+          { id: 'dev-123', name: 'Alice Node' },
+          { id: 'ada-77', name: 'Ada Lovelace' }
+        ];
+        const validUser = mockUsers.find(u => u.id === targetId);
+        if (!validUser) {
+          throw new Error("User ID not found. Please check the ID and try again.");
+        }
+        validUserName = validUser.name;
       }
 
       // Instead of creating the chat instantly, we notify the user
-      alert(`Friend request sent to ${validUser.name}! Waiting for their acceptance.`);
+      alert(`Friend request sent to ${validUserName}! Waiting for their acceptance.`);
       
       setShowAddChatModal(false);
       setNewChatId('');
@@ -578,6 +614,7 @@ export default function Chat() {
           </div>
 
           <WorkspaceItem icon={Settings} label="Settings" />
+          <WorkspaceItem icon={LogOut} label="Log Out" onClick={logout} />
         </div>
       </nav>
 
@@ -745,7 +782,7 @@ export default function Chat() {
                     <div className="p-4 w-[260px]">
                       <h3 className="text-xs font-bold text-[#bbcabf] uppercase tracking-wider mb-4">Online — 3</h3>
                       <div className="space-y-3">
-                        {MEMBERS.filter(m => m.status === 'online' || m.status === 'busy').map(member => (
+                        {members.filter(m => m.status === 'online' || m.status === 'busy').map(member => (
                           <div key={member.id} className="flex items-center space-x-3 group cursor-pointer hover:bg-[#202225] p-2 rounded-lg -mx-2 transition-colors">
                             <div className="relative">
                               {member.avatar ? (
@@ -769,7 +806,7 @@ export default function Chat() {
 
                       <h3 className="text-xs font-bold text-[#bbcabf] uppercase tracking-wider mt-6 mb-4">Offline — 1</h3>
                       <div className="space-y-3">
-                        {MEMBERS.filter(m => m.status === 'offline').map(member => (
+                        {members.filter(m => m.status === 'offline').map(member => (
                           <div key={member.id} className="flex items-center space-x-3 group cursor-pointer hover:bg-[#202225] p-2 rounded-lg -mx-2 transition-colors opacity-60 hover:opacity-100">
                             <div className="relative">
                               {member.avatar ? (

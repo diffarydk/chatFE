@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Terminal, Lock, Mail, User, ArrowRight, Github, Code, Layers, Zap, ShieldCheck, Hash } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -12,6 +14,7 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   // Simple password strength calculator
   useEffect(() => {
@@ -30,18 +33,27 @@ export default function Register() {
 
     try {
       // --- BACKEND INTEGRATION POINT ---
-      // Replace this timeout with your actual API call:
-      // const response = await fetch('YOUR_BE_URL/api/auth/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ userId, name, email, password })
-      // });
-      // const data = await response.json();
-      // if (!response.ok) throw new Error(data.message);
-      // localStorage.setItem('token', data.token);
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      
+      let token = 'mock-jwt-token-12345';
+      let loggedInUser = {
+        id: userId || 'user-me',
+        name: name,
+        email: email,
+        avatar: ''
+      };
 
-      // Simulate API Call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (apiBase) {
+        const data = await api.post('/auth/register', { userId, name, email, password });
+        token = data.token;
+        loggedInUser = data.user;
+      } else {
+        // Fallback: Simulate API Call
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      // Store in global authentication state and localStorage
+      login(token, loggedInUser);
 
       navigate('/chat');
     } catch (err: any) {

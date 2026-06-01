@@ -18,3 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/58bda37c-ae5c-4565-8618-bb64a
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Backend Integration
+
+Dokumentasi lengkap untuk menyambungkan frontend ke backend ada di [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md).

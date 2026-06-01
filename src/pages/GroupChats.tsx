@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Terminal, Settings, Plus, Search, Bell, MoreVertical, 
   Smile, Send, Mic, Paperclip, Check, CheckCheck, Info, MessageSquare, Users, Hash, 
-  ShieldCheck, Shield, Mail, Github, Video, Phone, UserCircle
+  ShieldCheck, Shield, Mail, Github, Video, Phone, UserCircle, LogOut
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 // --- Types & Mock Data ---
 
@@ -122,14 +123,17 @@ const MEMBERS: Member[] = [
 
 // --- Components ---
 
-function WorkspaceItem({ icon: Icon, label, active = false, isLast = false, to }: { icon: any, label: string, active?: boolean, isLast?: boolean, to?: string }) {
+function WorkspaceItem({ icon: Icon, label, active = false, isLast = false, to, onClick }: { icon: any, label: string, active?: boolean, isLast?: boolean, to?: string, onClick?: () => void }) {
   const content = (
     <div className={`relative group ${isLast ? 'mt-auto' : ''}`}>
-      <button className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all scale-95 active:scale-90 ${
-        active 
-          ? `bg-[#4edea3] text-[#131313] shadow-[0_0_12px_rgba(78,222,163,0.4)]` 
-          : `bg-[#201f22] text-[#bbcabf] hover:bg-[#3c4a42] hover:text-[#e5e2e1] hover:rounded-xl`
-      }`}>
+      <button 
+        onClick={onClick}
+        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all scale-95 active:scale-90 ${
+          active 
+            ? `bg-[#4edea3] text-[#131313] shadow-[0_0_12px_rgba(78,222,163,0.4)]` 
+            : `bg-[#201f22] text-[#bbcabf] hover:bg-[#3c4a42] hover:text-[#e5e2e1] hover:rounded-xl`
+        }`}
+      >
         <Icon size={24} />
       </button>
       <div className="absolute left-full ml-3 px-3 py-1 bg-[#2a2a2a] border border-[#3c4a42] rounded-md text-xs font-medium text-[#e5e2e1] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
@@ -189,6 +193,7 @@ const MessageBubble: React.FC<{ message: Message; showAvatar: boolean }> = ({ me
 }
 
 export default function GroupChats() {
+  const { user, logout } = useAuth();
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [inputValue, setInputValue] = useState("");
   const [activeChat, setActiveChat] = useState(GROUP_CHATS[0].id);
@@ -208,8 +213,8 @@ export default function GroupChats() {
     
     const newMessage: Message = {
       id: Date.now().toString(),
-      senderId: CURRENT_USER_ID,
-      senderName: 'You',
+      senderId: user?.id || 'user-me',
+      senderName: user?.name || 'You',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       content: inputValue,
       status: 'sent',
@@ -244,7 +249,8 @@ export default function GroupChats() {
           <div className="w-12 h-12 rounded-2xl bg-[#201f22] text-[#4edea3] flex items-center justify-center hover:bg-[#4edea3] hover:text-[#131313] transition-colors cursor-pointer border border-[#3c4a42] border-dashed">
             <Plus size={24} />
           </div>
-          <WorkspaceItem icon={Settings} label="Settings" isLast />
+          <WorkspaceItem icon={Settings} label="Settings" />
+          <WorkspaceItem icon={LogOut} label="Log Out" onClick={logout} isLast />
         </div>
       </nav>
 

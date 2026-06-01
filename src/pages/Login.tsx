@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Terminal, Lock, Mail, ArrowRight, Github, Code, Layers, Zap } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,6 +11,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,18 +20,44 @@ export default function Login() {
 
     try {
       // --- BACKEND INTEGRATION POINT ---
-      // Replace this timeout with your actual API call:
-      // const response = await fetch('YOUR_BE_URL/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password })
-      // });
-      // const data = await response.json();
-      // if (!response.ok) throw new Error(data.message);
-      // localStorage.setItem('token', data.token);
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      
+      let token = 'mock-jwt-token-12345';
+      let loggedInUser = {
+        id: 'user-me',
+        name: 'Ada Lovelace',
+        email: email,
+        avatar: ''
+      };
 
-      // Simulate API Call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (apiBase) {
+        const data = await api.post('/auth/login', { email, password });
+        token = data.token;
+        loggedInUser = data.user;
+      } else {
+        // Fallback: Simulate API Call
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Provide consistent data mapping for offline testing
+        if (email.toLowerCase().includes('ada')) {
+          loggedInUser = {
+            id: 'ada-77',
+            name: 'Ada Lovelace',
+            email: email,
+            avatar: ''
+          };
+        } else if (email.toLowerCase().includes('elena')) {
+          loggedInUser = {
+            id: '1',
+            name: 'Elena Rostova',
+            email: email,
+            avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7S_e5Te6PRqoXDr2zXASVNBUmQnmYL99eLmkMfnXQW21Y8MiA9AEYWn2lauHGr0ZrtMcqJ6BaZqRujmtp9zWaAAKTY5_8Bjrnsyfe0pJzuzVgmKRzthgKCccfFu3aasHkn76T799kIa4H18w5HJAHZjuXkOMc-trko8EXol63D0iq-dIH6RYgXB6P73TJ3IAsE6AfJDvnbIeVatF1PmfTRFw9FaaAMKxoW6nKKf0gSH1lZM161ivaZuUm64h2nkXQTTCu4E5dKe4'
+          };
+        }
+      }
+
+      // Store in global authentication state and localStorage
+      login(token, loggedInUser);
       
       // On success, redirect to chat
       navigate('/chat');

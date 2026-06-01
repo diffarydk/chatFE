@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Terminal, Settings, Plus, Search, Bell, MoreVertical,
-  UserPlus, Mail, Shield, ShieldCheck, Github, MessageSquare, Users, Hash
+  UserPlus, Mail, Shield, ShieldCheck, Github, MessageSquare, Users, Hash, LogOut
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 // --- Types & Mock Data ---
 
@@ -136,14 +137,17 @@ const MEMBERS: Member[] = [
 
 // --- Components ---
 
-function WorkspaceItem({ icon: Icon, label, active = false, isLast = false }: { icon?: any, label: string, active?: boolean, isLast?: boolean }) {
-  return (
+function WorkspaceItem({ icon: Icon, label, active = false, isLast = false, to, onClick }: { icon?: any, label: string, active?: boolean, isLast?: boolean, to?: string, onClick?: () => void }) {
+  const content = (
     <div className={`relative group ${isLast ? 'mt-auto' : ''}`}>
-      <button className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all scale-95 active:scale-90 ${
-        active 
-          ? `bg-[#4edea3] text-[#131313] shadow-[0_0_12px_rgba(78,222,163,0.4)]` 
-          : `bg-[#201f22] text-[#bbcabf] hover:bg-[#3c4a42] hover:text-[#e5e2e1] hover:rounded-xl`
-      }`}>
+      <button 
+        onClick={onClick}
+        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all scale-95 active:scale-90 ${
+          active 
+            ? `bg-[#4edea3] text-[#131313] shadow-[0_0_12px_rgba(78,222,163,0.4)]` 
+            : `bg-[#201f22] text-[#bbcabf] hover:bg-[#3c4a42] hover:text-[#e5e2e1] hover:rounded-xl`
+        }`}
+      >
         {Icon ? <Icon size={24} /> : <span className="font-bold text-lg">{label}</span>}
       </button>
       <div className="absolute left-full ml-3 px-3 py-1 bg-[#2a2a2a] border border-[#3c4a42] rounded-md text-xs font-medium text-[#e5e2e1] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
@@ -151,9 +155,12 @@ function WorkspaceItem({ icon: Icon, label, active = false, isLast = false }: { 
       </div>
     </div>
   );
+
+  return to ? <Link to={to}>{content}</Link> : content;
 }
 
 export default function Members() {
+  const { logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeChat, setActiveChat] = useState(RECENT_CHATS[0].id);
   const location = useLocation();
@@ -173,12 +180,13 @@ export default function Members() {
         </div>
         <div className="w-8 h-[2px] bg-[#2a2d31] rounded-full"></div>
         <div className="flex-1 w-full flex flex-col items-center space-y-2">
-          <WorkspaceItem icon={MessageSquare} label="Chats" active />
-          <WorkspaceItem icon={Users} label="Group Chats" />
+          <WorkspaceItem icon={MessageSquare} label="Chats" to="/chat" active />
+          <WorkspaceItem icon={Users} label="Group Chats" to="/groups" />
           <div className="w-12 h-12 rounded-2xl bg-[#201f22] text-[#4edea3] flex items-center justify-center hover:bg-[#4edea3] hover:text-[#131313] transition-colors cursor-pointer border border-[#3c4a42] border-dashed">
             <Plus size={24} />
           </div>
-          <WorkspaceItem icon={Settings} label="Settings" isLast />
+          <WorkspaceItem icon={Settings} label="Settings" />
+          <WorkspaceItem icon={LogOut} label="Log Out" onClick={logout} isLast />
         </div>
       </nav>
 
