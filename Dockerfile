@@ -15,6 +15,8 @@ COPY . .
 # Siapkan slot ARG untuk URL Backend nantinya
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_WS_URL
+ENV VITE_WS_URL=$VITE_WS_URL
 
 # Jalankan proses build (menghasilkan folder /dist)
 RUN npm run build

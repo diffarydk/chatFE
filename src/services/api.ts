@@ -34,7 +34,11 @@ export const api = {
     // Dynamic response interceptor logic
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || `Request failed with status ${response.status}`;
+      const errorMessage =
+        errorData.message ||
+        errorData.detail?.message ||
+        (typeof errorData.detail === 'string' ? errorData.detail : null) ||
+        `Request failed with status ${response.status}`;
       
       // Auto-logout if session expires (401 Unauthorized)
       if (response.status === 401) {

@@ -6,6 +6,7 @@ import {
   Hash, Users, User, X, CheckSquare, Square, Trash2, LogOut
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
@@ -194,6 +195,7 @@ export default function Chat() {
   const [showMembersPanel, setShowMembersPanel] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -258,26 +260,102 @@ export default function Chat() {
     fetchData();
   }, [token]);
 
-  // --- WEBSOCKET INTEGRATION POINT (CONNECT & LISTEN) ---
-  /*
+  // --- SOCKET.IO CONNECTION & REAL-TIME EVENTS ---
   useEffect(() => {
-    // 1. Connect to WebSocket server
-    // import { io } from 'socket.io-client';
-    // const socket = io('YOUR_BE_URL', { auth: { token: localStorage.getItem('token') } });
+    if (!token) return;
 
-    // 2. Listen for incoming messages
-    // socket.on('receiveMessage', (message) => {
-    //   setMessages(prev => [...prev, message]);
-    // });
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    const socketUrl = import.meta.env.VITE_WS_URL || apiBase.replace(/\/api\/?$/, '');
+    if (!socketUrl) return;
 
-    // 3. Listen for message status updates (delivered, read)
-    // socket.on('messageStatusUpdate', ({ messageId, status }) => {
-    //   setMessages(prev => prev.map(m => m.id === messageId ? { ...m, status } : m));
-    // });
+    const socket = io(socketUrl, {
+      auth: { token },
+    });
+    socketRef.current = socket;
 
-    // return () => socket.disconnect();
-  }, []);
-  */
+    socket.on('receiveMessage', (message: Message) => {
+      const normalizedMessage = {
+        ...message,
+        isSelf: message.senderId === user?.id,
+      };
+      setMessages(prev =>
+        prev.some(existing => existing.id === normalizedMessage.id)
+          ? prev
+          : [...prev, normalizedMessage]
+      );
+    });
+
+    socket.on('messageStatusUpdate', ({ messageId, status }) => {
+      setMessages(prev =>
+        prev.map(message =>
+          message.id === messageId ? { ...message, status } : message
+        )
+      );
+    });
+
+    socket.on('chatUpdated', (update: Partial<ChatSession> & { id: string }) => {
+      setChats(prev =>
+        prev.map(chat => chat.id === update.id ? { ...chat, ...update } : chat)
+      );
+    });
+
+    socket.on('friendRequestReceived', (request: FriendRequest) => {
+      setFriendRequests(prev =>
+        prev.some(existing => existing.id === request.id)
+          ? prev
+          : [request, ...prev]
+      );
+    });
+
+    socket.on('friendRequestAccepted', ({ chat }: { chat: ChatSession }) => {
+      setChats(prev => [chat, ...prev.filter(existing => existing.id !== chat.id)]);
+    });
+
+    socket.on('memberStatusUpdate', ({ id, status }) => {
+      setMembers(prev =>
+        prev.map(member => member.id === id ? { ...member, status } : member)
+      );
+    });
+
+    socket.on('connect_error', error => {
+      console.error('Socket.IO connection failed:', error.message);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [token, user?.id]);
+
+  // Load persisted messages and subscribe to the selected chat room.
+  useEffect(() => {
+    if (!activeChat || !import.meta.env.VITE_API_URL) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
+    const socket = socketRef.current;
+    socket?.emit('joinChat', { chatId: activeChat });
+
+    const fetchMessages = async () => {
+      try {
+        const data = await api.get(`/chats/${activeChat}/messages`);
+        if (!cancelled) setMessages(data);
+      } catch (error) {
+        if (!cancelled) {
+          console.error(`Failed to load messages for ${activeChat}:`, error);
+          setMessages([]);
+        }
+      }
+    };
+    fetchMessages();
+
+    return () => {
+      cancelled = true;
+      socket?.emit('leaveChat', { chatId: activeChat });
+    };
+  }, [activeChat]);
 
   useEffect(() => {
     scrollToBottom();
@@ -292,37 +370,20 @@ export default function Chat() {
   }, [dropdownMenu]);
 
   const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-    
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      senderId: user?.id || 'user-me',
-      senderName: user?.name || 'You',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      content: inputValue,
-      status: 'sent',
-      isSelf: true,
-    };
-    
-    // --- WEBSOCKET INTEGRATION POINT (EMIT MESSAGE) ---
-    // Optimistically update UI
-    setMessages([...messages, newMessage]);
-    setInputValue("");
-    
-    // Send to BE
-    // socket.emit('sendMessage', {
-    //   chatId: activeChat,
-    //   content: inputValue,
-    //   senderId: user?.id || 'user-me'
-    // });
+    const content = inputValue.trim();
+    if (!content || !activeChat) return;
 
-    // Remove these simulated status updates once BE handles it:
-    setTimeout(() => {
-      setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'delivered' } : m));
-    }, 1000);
-    setTimeout(() => {
-      setMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, status: 'read' } : m));
-    }, 2500);
+    const socket = socketRef.current;
+    if (!socket) {
+      console.error('Cannot send message: Socket.IO is not connected.');
+      return;
+    }
+
+    socket.emit('sendMessage', {
+      chatId: activeChat,
+      content,
+    });
+    setInputValue('');
   };
 
   const toggleChatSelection = (id: string) => {
@@ -439,37 +500,32 @@ export default function Chat() {
     }
   };
 
-  const handleAcceptFriendRequest = async (requestId: string, fromId: string, fromName: string) => {
-    // --- BACKEND INTEGRATION POINT (ACCEPT FRIEND REQUEST) ---
-    // await fetch(`/api/friend-requests/${requestId}/accept`, { method: 'POST' });
-    
-    // 1. Remove from local friendRequests state
-    setFriendRequests(prev => prev.filter(req => req.id !== requestId));
+  const handleAcceptFriendRequest = async (requestId: string) => {
+    try {
+      const response = await api.post(`/friend-requests/${requestId}/accept`);
+      const newChat = response.chat as ChatSession;
 
-    // 2. Create the new Chat session locally (or fetch updated chats from BE)
-    const newChat: ChatSession = {
-      id: fromId,
-      name: fromName,
-      type: 'direct',
-      lastMessage: 'Say hi!',
-      time: 'Just now',
-      unreadCount: 0,
-      online: true,
-      color: 'bg-indigo-500' // randomly assigned or fetched
-    };
-
-    setChats(prev => [newChat, ...prev]);
-    if (activeWorkspace !== 'all' && activeWorkspace !== 'direct') {
-      setActiveWorkspace('all');
+      setFriendRequests(prev => prev.filter(req => req.id !== requestId));
+      setChats(prev => [newChat, ...prev.filter(chat => chat.id !== newChat.id)]);
+      if (activeWorkspace !== 'all' && activeWorkspace !== 'direct') {
+        setActiveWorkspace('all');
+      }
+      setActiveChat(newChat.id);
+      setShowFriendRequests(false);
+    } catch (error) {
+      console.error('Failed to accept friend request:', error);
+      alert(error instanceof Error ? error.message : 'Failed to accept friend request.');
     }
-    setActiveChat(fromId);
-    setShowFriendRequests(false);
   };
 
   const handleRejectFriendRequest = async (requestId: string) => {
-    // --- BACKEND INTEGRATION POINT (REJECT FRIEND REQUEST) ---
-    // await fetch(`/api/friend-requests/${requestId}/reject`, { method: 'POST' });
-    setFriendRequests(prev => prev.filter(req => req.id !== requestId));
+    try {
+      await api.post(`/friend-requests/${requestId}/reject`);
+      setFriendRequests(prev => prev.filter(req => req.id !== requestId));
+    } catch (error) {
+      console.error('Failed to reject friend request:', error);
+      alert(error instanceof Error ? error.message : 'Failed to reject friend request.');
+    }
   };
 
   // Determine which chats to show in the sidebar
@@ -1076,7 +1132,7 @@ export default function Chat() {
                             Ignore
                           </button>
                           <button
-                            onClick={() => handleAcceptFriendRequest(req.id, req.fromId, req.fromName)}
+                            onClick={() => handleAcceptFriendRequest(req.id)}
                             className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold text-[#002113] bg-[#4edea3] hover:shadow-[0_0_10px_rgba(78,222,163,0.3)] transition-all"
                           >
                             Accept
